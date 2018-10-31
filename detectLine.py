@@ -36,87 +36,87 @@ class Line:
     def draw(self, img, color=[255, 0, 0], thickness=10):
         cv2.line(img, (self.x1, self.y1), (self.x2, self.y2), color, thickness)
 
-resize_h, resize_w = 500, 900
+
 test_images_dir = join('data', 'test_images')
 for name in os.listdir(test_images_dir):
     test_images = [join(test_images_dir, name)]
 
-for test_img in test_images:
-    out_path = join('out', 'images', basename(test_img))
-    inputIm = cv2.cvtColor(cv2.imread(test_img, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
-    img_h, img_w = inputIm.shape[0], inputIm.shape[1]
-    lane_lines = []
+#for test_img in test_images:
+test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
+#out_path = join('out', 'images', basename(test_img))
+inputIm = cv2.cvtColor(cv2.imread(test_img, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+img_h, img_w = inputIm.shape[0], inputIm.shape[1]
+lane_lines = []
 
-    colorIm = cv2.resize(inputIm, (900, 500))
-    imGray = cv2.cvtColor(inputIm, cv2.COLOR_BGR2RGB)
-    imBlur = cv2.GaussianBlur(imGray, (17,17), 0)
-    imEdg = cv2.Canny(imBlur, threshold1 = 50, threshold2=80)
+imGray = cv2.cvtColor(inputIm, cv2.COLOR_BGR2GRAY)
+imBlur = cv2.GaussianBlur(imGray, (17,17), 0)
+imEdg = cv2.Canny(imBlur, threshold1 = 50, threshold2=80)
 
-    lineDetect = cv2.HoughLinesP(imEdg, 2, np.pi / 180, 1, np.array([]), 15, 5)
-    lineDetect = [Line(l[0][0], l[0][1], l[0][2], l[0][3]) for l in lineDetect]
-    candLine = []
-    for line in lineDetect:
-        if 0.6 <= np.abs(line.slope) <= 2:
-            candLine.append(line)
-    ##
-    poSlop = [l for l in candLine if l.slope > 0]
-    negSlop = [l for l in candLine if l.slope < 0]
+lineDetect = cv2.HoughLinesP(imEdg, 2, np.pi / 180, 1, np.array([]), 15, 5)
+lineDetect = [Line(l[0][0], l[0][1], l[0][2], l[0][3]) for l in lineDetect]
+candLine = []
+for line in lineDetect:
+    if 0.5 <= np.abs(line.slope) <= 2:
+        candLine.append(line)
+##
+poSlop = [l for l in candLine if l.slope > 0]
+negSlop = [l for l in candLine if l.slope < 0]
 
-    negBias = np.median([l.bias for l in negSlop]).astype(int)
-    negSlo = np.median([l.slope for l in negSlop])
-    x1, y1 = 0, negBias
-    x2, y2 = -np.int32(np.round(negBias / negSlo)), 0
-    lefLan = Line(x1, y1, x2, y2)
+negBias = np.median([l.bias for l in negSlop]).astype(int)
+negSlo = np.median([l.slope for l in negSlop])
+x1, y1 = 0, negBias
+x2, y2 = -np.int32(np.round(negBias / negSlo)), 0
+lefLan = Line(x1, y1, x2, y2)
 
-    posBias = np.median([l.bias for l in poSlop]).astype(int)
-    posSlo = np.median([l.slope for l in poSlop])
-    x1, y1 = 0, posBias
-    x2, y2 = np.int32(np.round((imGray.shape[0] - posBias) / posSlo)), imGray.shape[0]
-    rigLan = Line(x1, y1, x2, y2)
+posBias = np.median([l.bias for l in poSlop]).astype(int)
+posSlo = np.median([l.slope for l in poSlop])
+x1, y1 = 0, posBias
+x2, y2 = np.int32(np.round((imGray.shape[0] - posBias) / posSlo)), imGray.shape[0]
+rigLan = Line(x1, y1, x2, y2)
 
-    inferLane = lefLan, rigLan
+inferLane = lefLan, rigLan
 
-    lane_lines.append(inferLane)
-    ##
-    avgLinLeft = np.zeros((len(lane_lines), 4))
-    avgLinRigh = np.zeros((len(lane_lines), 4))
+lane_lines.append(inferLane)
+##
+avgLinLeft = np.zeros((len(lane_lines), 4))
+avgLinRigh = np.zeros((len(lane_lines), 4))
 
-    for t in range(0, len(lane_lines)):
-        avgLinLeft[t] += lane_lines[t][0].get_coords()
-        avgLinRigh[t] += lane_lines[t][1].get_coords()
+for t in range(0, len(lane_lines)):
+    avgLinLeft[t] += lane_lines[t][0].get_coords()
+    avgLinRigh[t] += lane_lines[t][1].get_coords()
 
-    lane_lines = Line(*np.mean(avgLinLeft, axis=0)), Line(*np.mean(avgLinRigh, axis=0))
-    ##
-    line_img = np.zeros(shape=(img_h, img_w))
+lane_lines = Line(*np.mean(avgLinLeft, axis=0)), Line(*np.mean(avgLinRigh, axis=0))
+##
+line_img = np.zeros(shape=(img_h, img_w))
 
-    for lane in lane_lines:
-        lane.draw(line_img)
+for lane in lane_lines:
+    lane.draw(line_img)
 
-    vertices = np.array([[(50, img_h),
-                      (450, 310),
-                      (490, 310),
-                      (img_w - 50, img_h)]],
-                      dtype = np.int32)
+vertices = np.array([[(50, img_h),
+                  (450, 310),
+                  (490, 310),
+                  (img_w - 50, img_h)]],
+                  dtype = np.int32)
 
-    ##
-    mask = np.zeros_like(line_img)
-    if len(line_img.shape) > 2:
-        chanCnt = line_img[2]
-        ignoreMask = (255,) * chanCnt
-    else:
-        ignoreMask = 255
+##
+mask = np.zeros_like(line_img)
+if len(line_img.shape) > 2:
+    chanCnt = line_img[2]
+    ignoreMask = (255,) * chanCnt
+else:
+    ignoreMask = 255
 
-    cv2.fillPoly(mask, vertices, ignoreMask)
+cv2.fillPoly(mask, vertices, ignoreMask)
 
-    img_masked = cv2.bitwise_and(line_img, mask)
-    ##
+img_masked = cv2.bitwise_and(line_img, mask)
+##
 
-    img_masked = np.uint8(img_masked)
-    if len(img_masked.shape) is 2:
-        img_masked = np.dstack((img_masked, np.zeros_like(img_masked), np.zeros_like(img_masked)))
-    outIm = cv2.addWeighted(inputIm, 0.8, img_masked, 1, 0)
+img_masked = np.uint8(img_masked)
+if len(img_masked.shape) is 2:
+    img_masked = np.dstack((img_masked, np.zeros_like(img_masked), np.zeros_like(img_masked)))
+outIm = cv2.addWeighted(inputIm, 0.8, img_masked, 1, 0)
 
-    ##
-    cv2.imwrite(out_path, cv2.cvtColor(outIm, cv2.COLOR_RGB2BGR))
-    plt.imshow(outIm)
-    plt.waitforbuttonpress()
+##
+#cv2.imwrite(out_path, cv2.cvtColor(outIm, cv2.COLOR_RGB2BGR))
+plt.imshow(outIm)
+plt.waitforbuttonpress()
