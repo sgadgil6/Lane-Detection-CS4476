@@ -43,6 +43,16 @@ for name in os.listdir(test_images_dir):
 
 #for test_img in test_images:
 test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
+ground_truth_file = 'driver_161_90frame\\06030822_0756.MP4\\00000.lines.txt'
+array = []
+with open(ground_truth_file) as f:
+    for line in f:
+        for x in line.split():
+            array.append(float(x))
+ground_truth = []
+for i in range(len(array) - 1):
+    ground_truth.append((array[i], array[i+1]))
+
 #out_path = join('out', 'images', basename(test_img))
 inputIm = cv2.cvtColor(cv2.imread(test_img, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
 img_h, img_w = inputIm.shape[0], inputIm.shape[1]
@@ -105,7 +115,6 @@ if len(line_img.shape) > 2:
     ignoreMask = (255,) * chanCnt
 else:
     ignoreMask = 255
-
 cv2.fillPoly(mask, vertices, ignoreMask)
 
 img_masked = cv2.bitwise_and(line_img, mask)
@@ -115,6 +124,19 @@ img_masked = np.uint8(img_masked)
 if len(img_masked.shape) is 2:
     img_masked = np.dstack((img_masked, np.zeros_like(img_masked), np.zeros_like(img_masked)))
 outIm = cv2.addWeighted(inputIm, 0.8, img_masked, 1, 0)
+
+#Evaluation metrics
+error = 0
+for arr in vertices:
+    for vertex in arr:
+        minimum = float('inf')
+        for coord in ground_truth:
+            if (np.power(coord[0] - vertex[0], 2) + np.power(coord[1] - vertex[1], 2)) < minimum:
+                minimum = np.power(coord[0] - vertex[0], 2) + np.power(coord[1] - vertex[1], 2)
+        error = error + minimum
+print(np.sqrt(error))
+
+
 
 ##
 #cv2.imwrite(out_path, cv2.cvtColor(outIm, cv2.COLOR_RGB2BGR))
