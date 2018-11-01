@@ -6,7 +6,6 @@ import os
 import numpy as np
 from os.path import join, basename
 import numpy.linalg as linalg
-from collections import deque
 
 #Define a line class to draw a linea on the image
 #Use points in x,y coordinates to define line
@@ -58,9 +57,9 @@ for name in os.listdir(test_images_dir):
 
 
 #specify specific test image
-test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
-# test_img = 'data\\test_images\\solidWhiteRight.jpg'
-ground_truth_file = 'driver_161_90frame\\06030822_0756.MP4\\00000.lines.txt'
+# test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
+test_img = 'data\\test_images\\solidWhiteRight.jpg'
+ground_truth_file = 'gndTruth1.txt'
 leftArray = []
 rightArray = []
 f = open(ground_truth_file)
@@ -86,7 +85,7 @@ lane_lines = []
 
 imGray = cv2.cvtColor(inputIm, cv2.COLOR_BGR2GRAY)
 imBlur = cv2.GaussianBlur(imGray, (17,17), 0)
-imEdg = cv2.Canny(imBlur, threshold1 = 50, threshold2=80)
+imEdg = cv2.Canny(imBlur, threshold1=50, threshold2=80)
 
 lineDetect = cv2.HoughLinesP(imEdg, 2, np.pi / 180, 1, np.array([]), 15, 5)
 lineDetect = [Line(l[0][0], l[0][1], l[0][2], l[0][3]) for l in lineDetect]
