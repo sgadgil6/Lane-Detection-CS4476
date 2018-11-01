@@ -5,8 +5,11 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from os.path import join, basename
+import numpy.linalg as linalg
 from collections import deque
 
+#Define a line class to draw a linea on the image
+#Use points in x,y coordinates to define line
 class Line:
     def __init__(self, x1, y1, x2, y2):
 
@@ -36,24 +39,47 @@ class Line:
     def draw(self, img, color=[255, 0, 0], thickness=10):
         cv2.line(img, (self.x1, self.y1), (self.x2, self.y2), color, thickness)
 
+#Function to compute error from the ground truth using distance formula
+#Output is provided in average pixel error
+def computeError(lane, ground_truth):
+    error = 0
+    P1 = np.array((lane.x1, lane.y1))
+    P2 = np.array((lane.x2, lane.y2))
+    for coord in ground_truth:
+        P3 = np.array((coord[0], coord[1]))
+        dist = np.abs(linalg.norm(np.cross(P2 - P1, P1 - P3))) / linalg.norm(P2 - P1)
+        error += dist
+    return error/len(ground_truth)
 
+#get test image directory
 test_images_dir = join('data', 'test_images')
 for name in os.listdir(test_images_dir):
     test_images = [join(test_images_dir, name)]
 
-#for test_img in test_images:
-test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
-ground_truth_file = 'driver_161_90frame\\06030822_0756.MP4\\00000.lines.txt'
-array = []
-with open(ground_truth_file) as f:
-    for line in f:
-        for x in line.split():
-            array.append(float(x))
-ground_truth = []
-for i in range(len(array) - 1):
-    ground_truth.append((array[i], array[i+1]))
 
-#out_path = join('out', 'images', basename(test_img))
+#specify specific test image
+test_img = 'driver_161_90frame\\06030822_0756.MP4\\00000.jpg'
+# test_img = 'data\\test_images\\solidWhiteRight.jpg'
+ground_truth_file = 'driver_161_90frame\\06030822_0756.MP4\\00000.lines.txt'
+leftArray = []
+rightArray = []
+f = open(ground_truth_file)
+
+#obatin ground truth data from the provided text file
+line1 = f.readline()
+for x in line1.split():
+    leftArray.append(float(x))
+line2 = f.readline()
+for x in line2.split():
+    rightArray.append(float(x))
+ground_truth_left = []
+ground_truth_right = []
+for i in range(0, len(leftArray) - 1, 2):
+    ground_truth_left.append((leftArray[i], leftArray[i+1]))
+
+for i in range(0, len(rightArray) - 1, 2):
+    ground_truth_right.append((rightArray[i], rightArray[i+1]))
+
 inputIm = cv2.cvtColor(cv2.imread(test_img, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
 img_h, img_w = inputIm.shape[0], inputIm.shape[1]
 lane_lines = []
@@ -126,19 +152,15 @@ if len(img_masked.shape) is 2:
 outIm = cv2.addWeighted(inputIm, 0.8, img_masked, 1, 0)
 
 #Evaluation metrics
-error = 0
-for arr in vertices:
-    for vertex in arr:
-        minimum = float('inf')
-        for coord in ground_truth:
-            if (np.power(coord[0] - vertex[0], 2) + np.power(coord[1] - vertex[1], 2)) < minimum:
-                minimum = np.power(coord[0] - vertex[0], 2) + np.power(coord[1] - vertex[1], 2)
-        error = error + minimum
-print(np.sqrt(error))
-
+errorLeftLane = computeError(lane_lines[0], ground_truth_left)
+errorRightLane = computeError(lane_lines[1], ground_truth_right)
+print("Approx. Left Lane Pixel Error= %f" %errorLeftLane)
+print("Approx. Right Lane Pixel Error= %f" %errorRightLane)
 
 
 ##
 #cv2.imwrite(out_path, cv2.cvtColor(outIm, cv2.COLOR_RGB2BGR))
 plt.imshow(outIm)
 plt.waitforbuttonpress()
+
+
