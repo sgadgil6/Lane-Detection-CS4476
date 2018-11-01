@@ -1,0 +1,23 @@
+Qualitative Description Overview
+
+1. Define a line class in order to draw line on image and use x,y coordinates to define a line
+
+2. Get a test image directory
+
+3. Specify a specific test image
+
+4. Preprocess the image so that the image is in grayscale and the image is blurred with Gaussian blur.
+
+5. Calculate Edges with Canny Edge Detector
+
+6. Apply Hough Transform to Detect Lines
+
+7. Filter two lines such that it matches what is expected for a lane line
+
+8. Begin Drawing Lanes
+
+9. Define Polygon Mask for Lane
+
+10. Mask Lines to draw on the image
+
+11. Evaluate the error
