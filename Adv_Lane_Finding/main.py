@@ -43,18 +43,16 @@ def process_pipeline(frame, keep_state=True):
     _, magnitudeS = cv2.threshold(magnitudeS, 50, 1, cv2.THRESH_BINARY)
     binIm = np.logical_or(binIm, magnitudeS.astype(bool))
 
-    # apply a light morphology to "fill the gaps" in the binary image
     kernel = np.ones((5, 5), np.uint8)
     img_binary = cv2.morphologyEx(binIm.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
-    #######################################################################
+    
     plt.imshow(img_binary)
     plt.show()
-    # compute perspective transform to obtain bird's eye view
+    
     img_birdeye, M, Minv = perspectiveChange(img_binary)
     plt.imshow(img_birdeye)
     plt.show()
-    # fit 2-degree polynomial curve onto lane lines found
-
+    
     line_lt, line_rt, img_fit = detect_lanes_from_binary(img_birdeye, line_lt, line_rt)
 
     # compute offset in meter from center of the lane
@@ -69,10 +67,10 @@ def process_pipeline(frame, keep_state=True):
     blend_on_road = draw_on_road(frame, Minv, line_lt, line_rt)
     
     ##
-    h, w = blend_on_road.shape[:2]
+    blendShapeH, blendShapeW = blend_on_road.shape[:2]
    
-    thumb_ratio = 0.2
-    thumb_h, thumb_w = int(thumb_ratio * h), int(thumb_ratio * w)
+    rati = 0.2
+    thumb_h, thumb_w = int(rati * blendShapeH), int(rati * blendShapeW)
    
     off_x, off_y = 20, 15
    
