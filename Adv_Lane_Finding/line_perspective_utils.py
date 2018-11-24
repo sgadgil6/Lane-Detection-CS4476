@@ -1,23 +1,28 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def perspectiveChange(inputImg):
-    r, c = inputImg.shape
-    source = np.array([[c, r - 10],
+    plt.imshow(inputImg)
+    plt.title("Insied Birdeye")
+    plt.show()
+    r, c = inputImg.shape[:2]
+    source = np.float32([[c, r - 10],
                        [0, r - 10],
                        [546, 460],
                        [732, 460]])
-    dest = np.array([[c, r],
+    dest = np.float32([[c, r],
                      [0, r],
                      [400, 0],
                      [c, 0]])
 
-    invPerspTransform = cv2.getPerspectiveTransform(dest, source)
     perspTranform = cv2.getPerspectiveTransform(source, dest)
 
-    warpedImage = cv2.warpPerspective(inputImg, perspTranform, (r, c), flags=cv2.INTER_LINEAR)
-    return warpedImage, invPerspTransform, perspTranform
+    invPerspTransform = cv2.getPerspectiveTransform(dest, source)
+
+    warpedImage = cv2.warpPerspective(inputImg, perspTranform, (c, r), flags=cv2.INTER_LINEAR)
+    return warpedImage, perspTranform, invPerspTransform
 
 class Line:
     def __init__(self, length_buffer=10):
@@ -33,20 +38,20 @@ class Line:
         self.pixel_last_iteration = pixel_new
 
     def return_lane(self, img, lane_type):
-        lane_width = 30
+        lane_width = 35
         height, width, color = img.shape
         y_plot = np.linspace(0, height - 1, height)
         coefficients = self.pixel_last_iteration
-        central = pow(coefficients[0] * y_plot, 2) + coefficients[1] * y_plot + coefficients[2]
+        central = coefficients[0] * y_plot ** 2 + coefficients[1] * y_plot + coefficients[2]
         left_lane = central - lane_width // 2
         right_lane = central + lane_width // 2
         left_coords = np.array(list(zip(left_lane, y_plot)))
         right_coords = np.array(np.flipud(list(zip(right_lane, y_plot))))
         final_coords = np.vstack([left_coords, right_coords])
         if lane_type == 'right':
-            filled_area = cv2.fillPoly(img, [np.int32(final_coords)], (255, 0, 0))
-        else:
             filled_area = cv2.fillPoly(img, [np.int32(final_coords)], (0, 0, 255))
+        else:
+            filled_area = cv2.fillPoly(img, [np.int32(final_coords)], (255, 0, 0))
         return filled_area
 
     @property
@@ -86,15 +91,21 @@ def detect_lanes_from_binary(binary_img, left_line, right_line):
         x_right_window_down = currRightCoord - margin_width
         x_right_window_up = currRightCoord + margin_width
         x_left_window_down = currLeftCoord - margin_width
-        x_left_window_up = currRightCoord + margin_width
+        x_left_window_up = currLeftCoord + margin_width
 
         cv2.rectangle(output_image, (x_left_window_down, y_window_down), (x_left_window_up, y_window_up), (0, 255, 0), 2)
         cv2.rectangle(output_image, (x_right_window_down, y_window_down), (x_right_window_up, y_window_up), (0, 255, 0), 2)
-        leftLaneFinalCoords.append(((y_coords >= y_window_down) & (x_coords < x_left_window_up) & (y_coords < y_window_up)
-                                   & (x_coords >= x_left_window_down)).nonzero()[0])
-        rightLaneFinalCoords.append(((y_coords >= y_window_down) & (x_coords < x_right_window_up) & (y_coords < y_window_up)
-             & (x_coords >= x_right_window_down)).nonzero()[0])
+        leftIndicesFound = ((y_coords >= y_window_down) & (x_coords < x_left_window_up) & (y_coords < y_window_up)
+                                   & (x_coords >= x_left_window_down)).nonzero()[0]
+        rightIndicesFound = ((y_coords >= y_window_down) & (x_coords < x_right_window_up) & (y_coords < y_window_up)
+             & (x_coords >= x_right_window_down)).nonzero()[0]
+        if len(rightIndicesFound) > recenterThresh:
+            currRightCoord = np.int(np.mean(x_coords[rightIndicesFound]))
+        if len(leftIndicesFound) > recenterThresh:
+            currLeftCoord = np.int(np.mean(x_coords[leftIndicesFound]))
 
+        leftLaneFinalCoords.append(leftIndicesFound)
+        rightLaneFinalCoords.append(rightIndicesFound)
 
     rightLaneFinalCoords = np.hstack(rightLaneFinalCoords)
     leftLaneFinalCoords = np.hstack(leftLaneFinalCoords)
@@ -104,7 +115,7 @@ def detect_lanes_from_binary(binary_img, left_line, right_line):
     left_line.x_coords = x_coords[leftLaneFinalCoords]
     left_line.y_coords = y_coords[leftLaneFinalCoords]
     right_line.x_coords = x_coords[rightLaneFinalCoords]
-    right_line.y_coords = y_coords[leftLaneFinalCoords]
+    right_line.y_coords = y_coords[rightLaneFinalCoords]
 
     pixel_new_left = np.polyfit(left_line.y_coords, left_line.x_coords, 2)
     pixel_new_right = np.polyfit(right_line.y_coords, right_line.x_coords, 2)
@@ -115,17 +126,13 @@ def detect_lanes_from_binary(binary_img, left_line, right_line):
     left_line.set_new_line(pixel_new_left, meter_new_left)
     right_line.set_new_line(pixel_new_right, meter_new_right)
 
-    y_plot = np.linspace(0, ht - 1, ht)
-    fitted_left = pixel_new_left[0] * y_plot ** 2 +  pixel_new_left[1] * y_plot + pixel_new_left[2]
-    fitted_right = pixel_new_right[0] * y_plot ** 2 +  pixel_new_right[1] * y_plot + pixel_new_right[2]
-
     output_image[y_coords[leftLaneFinalCoords], x_coords[leftLaneFinalCoords]] = [255, 0, 0]
     output_image[y_coords[rightLaneFinalCoords], x_coords[rightLaneFinalCoords]] = [0, 0, 255]
 
     return left_line, right_line, output_image
 
 def draw_on_road(image, inverse_persp, left_line, right_line):
-    ht, wd = image.shape
+    ht, wd, color = image.shape
 
     warped = np.zeros_like(image, dtype='uint8')
     unwarped = cv2.warpPerspective(warped, inverse_persp, (wd, ht))
