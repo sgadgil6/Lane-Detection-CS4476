@@ -5,16 +5,16 @@ import matplotlib.pyplot as plt
 
 def perspectiveChange(inputImg):
     plt.imshow(inputImg)
-    plt.title("Insied Birdeye")
+    plt.title("Inside Perspective Change")
     plt.show()
     r, c = inputImg.shape[:2]
     source = np.float32([[c, r - 10],
                        [0, r - 10],
-                       [546, 460],
-                       [732, 460]])
+                       [680, 356],
+                       [915, 356]])
     dest = np.float32([[c, r],
                      [0, r],
-                     [400, 0],
+                     [600, 0],
                      [c, 0]])
 
     perspTranform = cv2.getPerspectiveTransform(source, dest)
@@ -61,6 +61,13 @@ class Line:
         return curvature
 
 def detect_lanes_from_binary(binary_img, left_line, right_line):
+    for i in range(binary_img.shape[0]):
+        for j in range(0, 300):
+            binary_img[i][j] = 0
+    for i in range(binary_img.shape[0]):
+        for j in range(1400, binary_img.shape[1]):
+            binary_img[i][j] = 0
+
     ht, wd = binary_img.shape
     hist = np.sum(binary_img[200:480, :], axis = 0)
 
@@ -106,7 +113,8 @@ def detect_lanes_from_binary(binary_img, left_line, right_line):
 
         leftLaneFinalCoords.append(leftIndicesFound)
         rightLaneFinalCoords.append(rightIndicesFound)
-
+    plt.imshow(output_image)
+    plt.show()
     rightLaneFinalCoords = np.hstack(rightLaneFinalCoords)
     leftLaneFinalCoords = np.hstack(leftLaneFinalCoords)
     rightLaneFinalCoords = rightLaneFinalCoords[::-1]
@@ -133,7 +141,8 @@ def detect_lanes_from_binary(binary_img, left_line, right_line):
 
 def draw_on_road(image, inverse_persp, left_line, right_line):
     ht, wd, color = image.shape
-
+    # wd = 1640
+    # ht = 590
     warped = np.zeros_like(image, dtype='uint8')
     unwarped = cv2.warpPerspective(warped, inverse_persp, (wd, ht))
     onRoad = cv2.addWeighted(image, 1., unwarped, 0.3, 0)
@@ -144,10 +153,10 @@ def draw_on_road(image, inverse_persp, left_line, right_line):
     unwarped_line = cv2.warpPerspective(line, inverse_persp, (wd, ht))
     maskForLine = onRoad.copy()
     indices = np.any([unwarped_line != 0][0], axis = 2)
+    print(len(np.where(indices == True)[0]))
     maskForLine[indices] = unwarped_line[indices]
     newOnRoad = cv2.addWeighted(src1=maskForLine, alpha=0.8, src2=onRoad, beta=0.5, gamma=0.)
     return newOnRoad
-
 
 
 
